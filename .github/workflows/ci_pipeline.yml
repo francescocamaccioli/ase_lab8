@@ -26,7 +26,7 @@ jobs:
 
       # Build e avvia tutti i servizi in modalità detached
       - name: Build and Start All Services
-        run: docker-compose -f src/docker-compose.yml up --build -d
+        run: docker compose -f src/docker-compose.yml up --build -d
 
       # Esegui i test di integrazione puntando al gateway
       - name: Run integration tests with Newman through Gateway
@@ -34,4 +34,4 @@ jobs:
 
       # Arresta e rimuove tutti i container dopo i test
       - name: Stop and Remove All Containers
-        run: docker-compose -f src/docker-compose.yml down
+        run: docker compose -f src/docker-compose.yml down

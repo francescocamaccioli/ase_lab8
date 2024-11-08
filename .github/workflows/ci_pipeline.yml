@@ -6,60 +6,9 @@ on:
       - main
 
 jobs:
-  unit_tests:
+  # Job per il microservizio calc
+  unit_test_calc:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service: [calc, string]  # Specifica i microservizi da testare
-        port: [5001, 5002]        # Specifica le porte corrispondenti
-    steps:
-      - name: Checkout the code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '16'  # Modificato alla versione 16
-
-      - name: Install Newman
-        run: npm install -g newman
-
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v3
-
-      # Build di ciascun microservizio con porta assegnata
-      - name: Build docker image for ${{ matrix.service }}
-        run: docker build -t ${{ matrix.service }}-test -f src/${{ matrix.service }}/Dockerfile_test src/${{ matrix.service }}
-
-      # Esecuzione del container su una porta specifica
-      - name: Run container for ${{ matrix.service }} on port ${{ matrix.port }}
-        run: docker run -d --name ${{ matrix.service }}_container -p ${{ matrix.port }}:5000 ${{ matrix.service }}-test
-
-      # Esecuzione dei test su ciascun microservizio
-      - name: Run unit tests with Newman for ${{ matrix.service }}
-        env:
-          SERVICE_PORT: ${{ matrix.port }}
-        run: newman run tests/${{ matrix.service }}_ut.postman_collection.json --env-var "baseUrl=http://localhost:${{ matrix.port }}"
-
-      - name: Stop and remove the container
-        run: docker stop ${{ matrix.service }}_container && docker rm ${{ matrix.service }}_container
-
-  build_services:
-      runs-on: ubuntu-latest
-      needs: unit_tests  # Esegui questo job solo se unit_tests ha successo
-      steps:
-        - name: Checkout the code
-          uses: actions/checkout@v4
-  
-        - name: Set up Docker
-          uses: docker/setup-buildx-action@v3
-  
-        - name: Run docker compose build
-          run: docker-compose -f src/docker-compose.yml build
-
-  integration_tests:
-    runs-on: ubuntu-latest
-    needs: build_services  # Esegui questo job solo se build_services ha successo
     steps:
       - name: Checkout the code
         uses: actions/checkout@v4
@@ -75,15 +24,46 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v3
 
-      - name: Run docker compose up in detached mode
-        run: docker-compose -f src/docker-compose.yml up -d
+      # Build e test per il microservizio calc
+      - name: Build docker image for calc
+        run: docker build -t calc-test -f src/calc/Dockerfile_test src/calc
 
-      - name: Run integration tests with Newman
-        run: newman run tests/integration.postman_collection.json
+      - name: Run container for calc on port 5001
+        run: docker run -d --name calc_container -p 5001:5000 calc-test
 
-      - name: Stop and remove all containers
-        run: docker-compose -f src/docker-compose.yml down
+      - name: Run unit tests with Newman for calc
+        run: newman run tests/calc_ut.postman_collection.json --env-var "baseUrl=http://localhost:5001"
 
+      - name: Stop and remove the container
+        run: docker stop calc_container && docker rm calc_container
 
+  # Job per il microservizio string
+  unit_test_string:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v4
 
-        
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16'
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      # Build e test per il microservizio string
+      - name: Build docker image for string
+        run: docker build -t string-test -f src/string/Dockerfile_test src/string
+
+      - name: Run container for string on port 5002
+        run: docker run -d --name string_container -p 5002:5000 string-test
+
+      - name: Run unit tests with Newman for string
+        run: newman run tests/string_ut.postman_collection.json --env-var "baseUrl=http://localhost:5002"
+
+      - name: Stop and remove the container
+        run: docker stop string_container && docker rm string_container

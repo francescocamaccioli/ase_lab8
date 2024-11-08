@@ -6,8 +6,8 @@ on:
       - main
 
 jobs:
-  # Job per il microservizio calc
-  unit_test_calc:
+  # Job per eseguire tutti i test unitari sui microservizi individuali
+  unit_tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the code
@@ -24,46 +24,14 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v3
 
-      # Build e test per il microservizio calc
-      - name: Build docker image for calc
-        run: docker build -t calc-test -f src/calc/Dockerfile_test src/calc
+      # Build e avvia tutti i servizi in modalità detached
+      - name: Build and Start All Services
+        run: docker-compose -f src/docker-compose.yml up --build -d
 
-      - name: Run container for calc on port 5001
-        run: docker run -d --name calc_container -p 5001:5000 calc-test
+      # Esegui i test di integrazione puntando al gateway
+      - name: Run integration tests with Newman through Gateway
+        run: newman run tests/integration.postman_collection.json --env-var "baseUrl=http://localhost:5000"
 
-      - name: Run unit tests with Newman for calc
-        run: newman run tests/calc_ut.postman_collection.json --env-var "baseUrl=http://localhost:5001"
-
-      - name: Stop and remove the container
-        run: docker stop calc_container && docker rm calc_container
-
-  # Job per il microservizio string
-  unit_test_string:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '16'
-
-      - name: Install Newman
-        run: npm install -g newman
-
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v3
-
-      # Build e test per il microservizio string
-      - name: Build docker image for string
-        run: docker build -t string-test -f src/string/Dockerfile_test src/string
-
-      - name: Run container for string on port 5002
-        run: docker run -d --name string_container -p 5002:5000 string-test
-
-      - name: Run unit tests with Newman for string
-        run: newman run tests/string_ut.postman_collection.json --env-var "baseUrl=http://localhost:5002"
-
-      - name: Stop and remove the container
-        run: docker stop string_container && docker rm string_container
+      # Arresta e rimuove tutti i container dopo i test
+      - name: Stop and Remove All Containers
+        run: docker-compose -f src/docker-compose.yml down
